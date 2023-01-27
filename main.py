@@ -1,4 +1,11 @@
 import pygame
+from pygame.locals import *
+import sys
+import random
+from datetime import datetime
+
+random.seed(datetime.now().timestamp() % 100)
+FPS = 50
 
 X_cells = 10
 Y_cells = 50
@@ -7,8 +14,11 @@ thick_bound = 5
 y_padding = 0
 grid_thick = 3
 fig_blocks = 4
+clock = pygame.time.Clock()
+bk_color = (0, 0, 0)
 
 figcolors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255), (255, 128, 0)]
+
 I1 = [['o', 'o', 'a', 'o'],
       ['o', 'o', 'a', 'o'],
       ['o', 'o', 'a', 'o'],
@@ -41,8 +51,8 @@ S22 = [['o', 'o', 'o', 'o'],
 
 T1 = [['o', 'o', 'o', 'o'],
       ['o', 'o', 'o', 'o'],
-      ['o', 'o', 'a', 'o'],
-      ['o', 'a', 'a', 'a']]
+      ['o', 'a', 'o', 'o'],
+      ['a', 'a', 'a', 'o']]
 
 T2 = [['o', 'o', 'o', 'o'],
       ['o', 'o', 'a', 'o'],
@@ -113,7 +123,7 @@ figures = {"I": [I1, I2],
            "L2": [L21, L22, L23, L24]}
 
 
-def draw_fig(screen, fig_key, orientation, color, place):
+def draw_fig(fig_key, orientation, color, place):
     x0 = int((width) / 2 - (X_cells * quant) / 2)
     y0 = int(height)
     x = place[0]
@@ -136,11 +146,46 @@ def draw_fig(screen, fig_key, orientation, color, place):
             yb = (i + 1) * quant
             if arr[i][j] == "a":
                 pygame.draw.rect(figure, color, pygame.Rect((xa, ya), (xb, yb)))
+            else:
+                pygame.draw.rect(figure, bk_color, pygame.Rect((xa, ya), (xb, yb)))
 
-    screen.blit(figure, (x1, y1))
     # for i in range(-1, 1):
     #     screen.set_at((x0 - i, y0 - 10), (255, 0, 0))
     # pygame.draw.circle(screen, (255, 0, 0), (x0, y0 - 10), 10)
+    return figure, x1, y1
+
+
+def movment_fig(screen, place):
+    r = 50
+    x0 = int((width) / 2 - (X_cells * quant) / 2)
+    y0 = int(height)
+    x = place[0]
+    y = place[1]
+    xs = x - fig_blocks
+    ys = y + fig_blocks
+    x1 = x0 + xs * quant
+    y1 = y0 + quant - ys * quant
+    screen2 = screen
+    '''
+    screen - пустой экран или экран до вывода фигуры
+    screen2 - совмещеный экран на котором применили фигуру
+
+    '''
+    figure = pygame.Surface((fig_blocks * quant, fig_blocks * quant), pygame.SRCALPHA)
+    set_background(64, 64, 64)
+    draw_mainfield(screen, quant)
+    '''
+    в будущем требуется в данном месте сохранять текущие состояне
+     экрана в переменную и затем ее востанвливать 
+     '''
+
+
+def set_background(red, green, blue):
+    x0 = (width) / 2 - (X_cells * quant) / 2
+    pygame.draw.rect(screen, pygame.Color((red, green, blue)), pygame.Rect(x0, y_padding,
+                                                                           X_cells * quant,
+                                                                           Y_cells * quant - y_padding))
+    screen.fill((red, green, blue), rect=(x0, y_padding, X_cells * quant, Y_cells * quant - y_padding))
 
 
 def draw_mainfield(screen, quant):
@@ -183,26 +228,575 @@ def draw_info(screen):
     screen.blit(text5, (950, 0))
 
 
-if __name__ == '__main__':
-    pygame.init()
-    pygame.display.set_caption("Tetris")
-    try:
-        width, height = 1280, 800
-        size = (width, height)
-        A = ((width) / 2 - (height * quant) / 2, height)
-        B = ((width) / 2 - (height * quant) / 2, 0)
-        C = ((width) / 2 + (height * quant) / 2, 0)
-        D = ((width) / 2 + (height * quant) / 2, height)
-        screen = pygame.display.set_mode(size)
-        print(type(screen))
+def check_limits(place, button, fig, orient):
+    x = place[0]
+    y = place[1]
+    if fig == "I":
+        if orient == 0:
+            if button == 1:
+                if x == X_cells - 1 + 2:
+                    return False
+                else:
+                    return True
+            if button == 0:
+                if x == 2:
+                    return False
+                else:
+                    return True
+            if button == 2:
+                if y == 1:
+                    return False
+                else:
+                    return True
+            if button == 3:
+                if y + 3 == 16:
+                    return False
+                else:
+                    return True
+        if orient == 1:
+            if button == 1:
+                if x == X_cells - 1 + 1:
+                    return False
+                else:
+                    return True
+            if button == 0:
+                if x == 4:
+                    return False
+                else:
+                    return True
+            if button == 2:
+                if y == 1:
+                    return False
+                else:
+                    return True
+            if button == 3:
+                if y + 3 == 16:
+                    return False
+                else:
+                    return True
+
+    if fig == "O":
+        if orient == 0:
+            if button == 1:
+                if x == X_cells - 1 + 2:
+                    return False
+                else:
+                    return True
+            if button == 0:
+                if x == 3:
+                    return False
+                else:
+                    return True
+            if button == 2:
+                if y == 0:
+                    return False
+                else:
+                    return True
+            if button == 3:
+                if y + 3 == 16:
+                    return False
+                else:
+                    return True
+        if orient == 1:
+            return True
+    if fig == "T":
+        if orient == 0:
+            if button == 1:
+                if x == X_cells - 1 + 2:
+                    return False
+                else:
+                    return True
+            if button == 0:
+                if x == 4:
+                    return False
+                else:
+                    return True
+            if button == 2:
+                if y == 1:
+                    return False
+                else:
+                    return True
+            if button == 3:
+                if y + 3 == 16:
+                    return False
+                else:
+                    return True
+        if orient == 1:
+            if button == 1:
+                if x == X_cells - 1 + 1:
+                    return False
+                else:
+                    return True
+            if button == 0:
+                if x == 2:
+                    return False
+                else:
+                    return True
+            if button == 2:
+                if y == 1:
+                    return False
+                else:
+                    return True
+            if button == 3:
+                if y + 3 == 16:
+                    return False
+                else:
+                    return True
+        if orient == 2:
+            if button == 1:
+                if x == X_cells - 1 + 3:
+                    return False
+                else:
+                    return True
+            if button == 0:
+                if x == 4:
+                    return False
+                else:
+                    return True
+            if button == 2:
+                if y == 1:
+                    return False
+                else:
+                    return True
+            if button == 3:
+                if y + 3 == 16:
+                    return False
+                else:
+                    return True
+        if orient == 3:
+            if button == 1:
+                if x == X_cells - 1 + 2:
+                    return False
+                else:
+                    return True
+            if button == 0:
+                if x == 4:
+                    return False
+                else:
+                    return True
+            if button == 2:
+                if y == 1:
+                    return False
+                else:
+                    return True
+            if button == 3:
+                if y + 3 == 16:
+                    return False
+                else:
+                    return True
+    if fig == "S1":
+        if orient == 0:
+            if button == 1:
+                if x == X_cells - 1 + 2:
+                    return False
+                else:
+                    return True
+            if button == 0:
+                if x == 3:
+                    return False
+                else:
+                    return True
+            if button == 2:
+                if y == 1:
+                    return False
+                else:
+                    return True
+            if button == 3:
+                if y + 3 == 16:
+                    return False
+                else:
+                    return True
+        if orient == 1:
+            if button == 1:
+                if x == X_cells - 1 + 1:
+                    return False
+                else:
+                    return True
+            if button == 0:
+                if x == 3:
+                    return False
+                else:
+                    return True
+            if button == 2:
+                if y == 1:
+                    return False
+                else:
+                    return True
+            if button == 3:
+                if y + 3 == 16:
+                    return False
+                else:
+                    return True
+
+
+    if fig == "S2":
+        if orient == 0:
+            if button == 1:
+                if x == X_cells - 1 + 2:
+                    return False
+                else:
+                    return True
+            if button == 0:
+                if x == 3:
+                    return False
+                else:
+                    return True
+            if button == 2:
+                if y == 1:
+                    return False
+                else:
+                    return True
+            if button == 3:
+                if y + 3 == 16:
+                    return False
+                else:
+                    return True
+        if orient == 1:
+            if button == 1:
+                if x == X_cells - 1 + 1:
+                    return False
+                else:
+                    return True
+            if button == 0:
+                if x == 3:
+                    return False
+                else:
+                    return True
+            if button == 2:
+                if y == 1:
+                    return False
+                else:
+                    return True
+            if button == 3:
+                if y + 3 == 16:
+                    return False
+                else:
+                    return True
+
+    if fig == "L1":
+        if orient == 0:
+            if button == 1:
+                if x == X_cells - 1 + 2:
+                    return False
+                else:
+                    return True
+            if button == 0:
+                if x == 3:
+                    return False
+                else:
+                    return True
+            if button == 2:
+                if y == 1:
+                    return False
+                else:
+                    return True
+            if button == 3:
+                if y + 3 == 16:
+                    return False
+                else:
+                    return True
+        if orient == 1:
+            if button == 1:
+                if x == X_cells - 1 + 1:
+                    return False
+                else:
+                    return True
+            if button == 0:
+                if x == 3:
+                    return False
+                else:
+                    return True
+            if button == 2:
+                if y == 1:
+                    return False
+                else:
+                    return True
+            if button == 3:
+                if y + 3 == 16:
+                    return False
+                else:
+                    return True
+        if orient == 2:
+            if button == 1:
+                if x == X_cells - 1 + 2:
+                    return False
+                else:
+                    return True
+            if button == 0:
+                if x == 3:
+                    return False
+                else:
+                    return True
+            if button == 2:
+                if y == 1:
+                    return False
+                else:
+                    return True
+            if button == 3:
+                if y + 3 == 16:
+                    return False
+                else:
+                    return True
+        if orient == 3:
+            if button == 1:
+                if x == X_cells - 1 + 2:
+                    return False
+                else:
+                    return True
+            if button == 0:
+                if x == 4:
+                    return False
+                else:
+                    return True
+            if button == 2:
+                if y == 1:
+                    return False
+                else:
+                    return True
+            if button == 3:
+                if y + 3 == 16:
+                    return False
+                else:
+                    return True
+
+    if fig == "L2":
+        if orient == 0:
+            if button == 1:
+                if x == X_cells - 1 + 2:
+                    return False
+                else:
+                    return True
+            if button == 0:
+                if x == 3:
+                    return False
+                else:
+                    return True
+            if button == 2:
+                if y == 1:
+                    return False
+                else:
+                    return True
+            if button == 3:
+                if y + 3 == 16:
+                    return False
+                else:
+                    return True
+        if orient == 1:
+            if button == 1:
+                if x == X_cells - 1 + 1:
+                    return False
+                else:
+                    return True
+            if button == 0:
+                if x == 3:
+                    return False
+                else:
+                    return True
+            if button == 2:
+                if y == 1:
+                    return False
+                else:
+                    return True
+            if button == 3:
+                if y + 3 == 16:
+                    return False
+                else:
+                    return True
+        if orient == 2:
+            if button == 1:
+                if x == X_cells - 1 + 2:
+                    return False
+                else:
+                    return True
+            if button == 0:
+                if x == 3:
+                    return False
+                else:
+                    return True
+            if button == 2:
+                if y == 1:
+                    return False
+                else:
+                    return True
+            if button == 3:
+                if y + 3 == 16:
+                    return False
+                else:
+                    return True
+        if orient == 3:
+            if button == 1:
+                if x == X_cells - 1 + 2:
+                    return False
+                else:
+                    return True
+            if button == 0:
+                if x == 4:
+                    return False
+                else:
+                    return True
+            if button == 2:
+                if y == 1:
+                    return False
+                else:
+                    return True
+            if button == 3:
+                if y + 3 == 16:
+                    return False
+                else:
+                    return True
+
+def OnKeyDown(place, figure, orient):
+    """
+    обработчик нажатия кнопки аниз
+    """
+    button = 2
+    if check_limits(place, button, figure, orient):
+        place[1] -= 1
+        fig, x1, y1 = draw_fig(figure, orient, figcolors[3], place)
+        screen.fill((0, 0, 0))
+        field_state.blit(fig, (x1, y1))
         draw_mainfield(screen, quant)
         draw_info(screen)
 
-        draw_fig(screen, "S2", 0, figcolors[3], (5, 2))
-        # x0 = int((width) / 2 - (X_cells * quant) / 2)
-        # y0 = int(height)
-        while pygame.event.wait().type != pygame.QUIT:
-            pygame.display.flip()
-            # pygame.quit()
-    except ValueError:
-        print('Неправильный формат ввода')
+
+def OnKeyUp(place, figure, orient):
+    """
+    обработчик нажатия кнопки вверх
+    """
+    button = 3
+    if check_limits(place, button, figure, orient):
+        place[1] += 1
+        fig, x1, y1 = draw_fig(figure, orient, figcolors[3], place)
+        screen.fill((0, 0, 0))
+        field_state.blit(fig, (x1, y1))
+        draw_mainfield(screen, quant)
+        draw_info(screen)
+
+
+def OnKeyRight(place, figure, orient):
+    button = 1
+    if check_limits(place, button, figure, orient):  # and checkPos(cup, fallingFig, adjX=1):
+        place[0] += 1
+        fig, x1, y1 = draw_fig(figure, orient, figcolors[3], place)
+        screen.fill((0, 0, 0))
+        field_state.blit(fig, (x1, y1))
+        draw_mainfield(screen, quant)
+        draw_info(screen)
+        # filed_old = field_state
+        # screen.fill((0, 0, 0))
+        # screen.blit(fig, (x1, y1))
+        # draw_mainfield(screen, quant)
+        # draw_info(screen)
+        # screen = field_state
+        # field_state = filed_old
+
+
+def OnKeyLeft(place, figure, orient):
+    button = 0
+    if check_limits(place, button, figure, orient):
+        place[0] -= 1
+        fig, x1, y1 = draw_fig(figure, orient, figcolors[3], place)
+        screen.fill((0, 0, 0))
+        field_state.blit(fig, (x1, y1))
+        draw_mainfield(screen, quant)
+        draw_info(screen)
+
+        # filed_old = field_state
+        # screen.fill((0, 0, 0))
+        # field_state.blit(fig, (x1, y1))
+        # draw_mainfield(screen, quant)
+        # draw_info(screen)
+        # screen = field_state
+        # field_state = filed_old
+
+
+# def main():
+# if __name__ == '__main__':
+pygame.init()
+pygame.display.set_caption("Tetris")
+
+try:
+    width, height = 1280, 800
+    size = (width, height)
+
+    A = ((width) / 2 - (height * quant) / 2, height)
+    B = ((width) / 2 - (height * quant) / 2, 0)
+    C = ((width) / 2 + (height * quant) / 2, 0)
+    D = ((width) / 2 + (height * quant) / 2, height)
+
+    screen = pygame.display.set_mode(size)
+    draw_info(screen)
+    draw_mainfield(screen, quant)
+
+    # movment_fig(screen, (5, 5))
+    place = [10, 12]  # положение правого нижнего конца фигуры
+
+    figure = "L2"
+    orient = 3
+    print("Debug: ", figure, orient)
+    fig, x1, y1 = draw_fig(figure, orient, figcolors[3], place)
+    field_state = screen
+    screen.fill((0, 0, 0))
+    field_state.blit(fig, (x1, y1))
+    draw_mainfield(screen, quant)
+    draw_info(screen)
+
+    """
+    1. как сделать чтобы когда держишь кнопку фигура перемещалась постоянно не останавливаясь?
+    2. делать проверку может ли переместиться фигура
+    3. сетка и рисовать поверх
+
+    домашка от 22012023
+    А. сделать чтобы во все стороны не рисовало шлейф
+    Б. рисовать в фигуре не черные прямоугольники где фигуры нет а прозрачные тогда будет видна и сетка и границы
+    В. сделать проверки на выход
+    Г. пункт 1 выше
+
+    """
+
+    while True:
+        """
+        сначала проверка может ли встать туда куда мы нажали фигура
+        берем place и создаем временный новый place и проверяем может ли он быть таким
+        если да - то place = place_new
+        и стираем старую фигуру
+        рисуем новую с помощью draw_fig в новом месте
+        если нет - игнорим нажатие                    
+        """
+
+        for event in pygame.event.get():
+            if event.type == KEYDOWN:
+                if event.key == K_KP4 or event.key == K_LEFT:  # and checkPos(cup, fallingFig, adjX=-1):
+                    OnKeyLeft(place, figure, orient)
+                elif event.key == K_KP6 or event.key == K_RIGHT:
+                    OnKeyRight(place, figure, orient)
+                elif event.key == K_KP8 or event.key == K_UP:
+                    OnKeyUp(place, figure, orient)
+                elif event.key == K_KP2 or event.key == K_DOWN:
+                    OnKeyDown(place, figure, orient)
+
+        pygame.time.wait(200)
+        # pygame.event.Event(KEYDOWN, K_DOWN)
+
+        OnKeyDown(place, figure, orient)
+
+        pygame.display.flip()
+
+    # # это позволяет сразу не закрывать окно после отрисовки фигуры, а оно живет пока не закроем программу явно
+    # while pygame.event.wait().type != pygame.QUIT:
+    #     pygame.display.flip()
+    # pygame.display.flip()
+    # pygame.time.delay(3000)
+
+    # x0 = int((width) / 2 - (X_cells * quant) / 2)
+    # y0 = int(height)
+
+except ValueError:
+    print('Неправильный формат ввода')
+
+# главный цикл игры
+
+# while True:
+
+
+# main()
