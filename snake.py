@@ -43,17 +43,15 @@ def to_binary(f, s) -> int:
 
 
 class Board:
-    def __init__(self, x, y, width, height, plan, direction):
-        self.field_w = len(plan[0])
-        self.field_h = len(plan)
-        self.cell_w = width // self.field_w
-        self.cell_h = height // self.field_h
+    def __init__(self, x, y, width, height, cell_w):
+        self.field_w = width // cell_w
+        self.field_h = height // cell_w
+        self.cell_w = self.cell_h = cell_w
         self.x = x
         self.y = y
-        self.plan = plan
+        self.plan = [['.'] * self.field_w for i in range(self.field_h)]
         self.snake = pygame.sprite.Group()
-        self.snake_body = pygame.sprite.Group()
-        self.snake_head = pygame.sprite.Group()
+        self.snake_tail = pygame.sprite.Group()
         self.tileset = (load_image('master-tileset.png'), 10, 5)
         self.apple = pygame.transform.scale(cut_sheet((load_image('snake-graphics.png'), 5, 4), (0, 3)),
                                             (self.cell_w, self.cell_h))
@@ -61,22 +59,9 @@ class Board:
         self.distance = 0
         self.dir_x = 0
         self.dir_y = 0
-        self.nowdir_x = 0
-        self.nowdir_y = 0
         self.snake_len = 0
-        self.head_x = 0
-        self.head_y = 0
-        chords = []
-        for i in range(len(plan)):
-            for j in range(len(plan[i])):
-                cur = plan[i][j]
-                if cur.isdigit():
-                    if len(chords) <= int(cur):
-                        chords += [(0, 0)] * (int(cur) - len(chords) + 1)
-                    chords[int(cur)] = (j, i)
-        self.new_snake(chords, direction)
-        for i in self.plan:
-            print(i)
+        self.head = None
+        self.tail = None
 
     def new_snake(self, chords, direction):
         if chords:
@@ -84,22 +69,22 @@ class Board:
             self.distance = 0
             self.dir_x = direction[0]
             self.dir_y = direction[1]
-            self.nowdir_x = direction[0]
-            self.nowdir_y = direction[1]
             self.snake_len = len(chords)
-            self.head_x = chords[0][0]
-            self.head_y = chords[0][1]
-            x = self.x + self.head_x * self.cell_w
-            y = self.y + self.head_y * self.cell_h
-            Head(x, y, self.cell_h, self.cell_w, direction, self.snake, self.snake_head)
-            self.plan[chords[0][1]][chords[0][0]] = '0'
+            x = self.x + chords[0][0] * self.cell_w
+            y = self.y + chords[0][1] * self.cell_h
+            self.head = Head(x, y, self.cell_h, self.cell_w, direction, chords[0][0], chords[0][1],
+                             self.snake)
+            self.plan[chords[0][1]][chords[0][0]] = '>'
+            self.plan[chords[-1][1]][chords[-1][0]] = '<'
             act = []
-            for i in range(1, len(chords)):
-                x = self.x + chords[i][0] * self.cell_w
-                y = self.y + chords[i][1] * self.cell_h
-                self.plan[chords[i][1]][chords[i][0]] = str(i)
+            for i in range(1, len(chords) - 1):
+                self.plan[chords[i][1]][chords[i][0]] = '-'
                 act.append((chords[i - 1][0] - chords[i][0], chords[i - 1][1] - chords[i][1]))
-                SnakePiece(x, y, self.cell_h, self.cell_w, direction, list(reversed(act)), self.snake, self.snake_body)
+            x = self.x + chords[-1][0] * self.cell_w
+            y = self.y + chords[-1][1] * self.cell_h
+            act.append((chords[-2][0] - chords[-1][0], chords[-2][1] - chords[-1][1]))
+            self.tail = Tail(x, y, self.cell_h, self.cell_w, direction, list(reversed(act)), chords[-1][0],
+                             chords[-1][1], self.snake, self.snake_tail)
 
     def snake_control(self, time, x, y, screen):
         if self.snake_len == 0:
@@ -116,48 +101,32 @@ class Board:
         if self.distance >= self.cell_w:
             self.distance -= self.cell_w
             self.snake.update(move=move - self.distance)
+            self.plan[self.head.y][self.head.x] = '-'
+            self.plan[self.tail.y][self.tail.x] = '.'
             self.snake.update(change=True, x=self.dir_x, y=self.dir_y)
-            self.head_x += self.nowdir_x
-            self.head_y += self.nowdir_y
-            eat = False
-            if self.plan[self.head_y][self.head_x] == '@':
-                eat = True
-            for i in range(len(self.plan)):
-                for j in range(len(self.plan[i])):
-                    if self.plan[i][j].isdigit():
-                        if int(self.plan[i][j]) + 1 == self.snake_len:
-                            self.plan[i][j] = '.'
-                        else:
-                            self.plan[i][j] = str(int(self.plan[i][j]) + 1)
-            self.plan[self.head_y][self.head_x] = '0'
-            hx = self.head_x + self.dir_x
-            hy = self.head_y + self.dir_y
-            self.nowdir_x = self.dir_x
-            self.nowdir_y = self.dir_y
+            if self.plan[self.head.y][self.head.x] == '@':
+                self.snake_len += 1
+                self.snake_tail.update(sleep=True)
+            self.plan[self.head.y][self.head.x] = '>'
+            self.plan[self.tail.y][self.tail.x] = '<'
+            hx = self.head.x + self.dir_x
+            hy = self.head.y + self.dir_y
             print()
             for i in self.plan:
                 print(i)
-            if 0 > hx or hx >= self.field_w or 0 > hy or hy >= self.field_h or self.plan[hy][hx] in ['#', '%']\
-                    or self.plan[hy][hx].isdigit():
+            if 0 > hx or hx >= self.field_w or 0 > hy or hy >= self.field_h or\
+                    self.plan[hy][hx] in ['#', '%', '-', '<']:
                 self.snake_len = 0
                 self.snake.update(die=True)
                 self.snake.empty()
-                self.snake_body.empty()
-                self.snake_head.empty()
+                self.snake_tail.empty()
                 for i in range(len(self.plan)):
                     for j in range(len(self.plan[i])):
-                        if self.plan[i][j].isdigit():
+                        if self.plan[i][j] in ['<', '-', '>']:
                             self.plan[i][j] = '%'
                 self.render(screen)
                 return False
             else:
-                if eat:
-                    self.snake_len += 1
-                    x = self.x + self.head_x * self.cell_w
-                    y = self.y + self.head_y * self.cell_h
-                    self.snake_body.update(sleep=True)
-                    SnakePiece(x, y, self.cell_h, self.cell_w, (self.nowdir_x, self.nowdir_y),
-                               [(0, 0)], self.snake, self.snake_body)
                 self.snake.update(move=self.distance)
         elif move > 0:
             self.snake.update(move=move)
@@ -172,15 +141,16 @@ class Board:
                 y = self.y + i * self.cell_h
                 cur = self.plan[i][j]
                 im = pygame.Surface((self.cell_w, self.cell_h))
-                if cur == '%':
+                if cur in ['>', '-']:
+                    im.fill('green')
+                elif cur == '%':
                     im.fill('gray')
                 elif cur != '#':
                     im = pygame.transform.scale(cut_sheet(self.tileset, (0, 2)), (self.cell_w, self.cell_h))
                 screen.blit(im, (x, y))
                 if cur == '@':
                     screen.blit(self.apple, (x, y))
-        self.snake_body.draw(screen)
-        self.snake_head.draw(screen)
+        self.snake.draw(screen)
 
     def summon_apple(self):
         x = randrange(self.field_w)
@@ -191,8 +161,9 @@ class Board:
         self.plan[y][x] = '@'
 
 
-class SnakePiece(pygame.sprite.Sprite):
-    def __init__(self, x: int, y: int, width: int, height: int, direction, acts, *group: pygame.sprite.Group) -> None:
+class Tail(pygame.sprite.Sprite):
+    def __init__(self, x: int, y: int, width: int, height: int, direction, acts, x_pos, y_pos,
+                 *group: pygame.sprite.Group) -> None:
         super().__init__(*group)
         self.image = pygame.Surface((width, height))
         self.image.fill("green")
@@ -201,14 +172,22 @@ class SnakePiece(pygame.sprite.Sprite):
         self.rect.y = y
         self.dir_x = 0
         self.dir_y = 0
+        self.x = x_pos
+        self.y = y_pos
         self.order = deque(acts + [direction])
+        self.draw_yourself()
         self.change_dir(direction[0], direction[1])
+
+    def draw_yourself(self):
+        pass
 
     def update(self, change=False, x=0, y=0, move=0, die=False, sleep=False) -> None:
         if change:
             if x != y:
                 self.change_dir(x, y)
             self.order.append((self.dir_x, self.dir_y))
+            self.x += self.order[0][0]
+            self.y += self.order[0][1]
             self.order.popleft()
         elif move != 0:
             act = self.order[0]
@@ -232,24 +211,15 @@ class SnakePiece(pygame.sprite.Sprite):
         self.dir_y = y
 
 
-class Head(SnakePiece):
-    def __init__(self, x: int, y: int, width: int, height: int, direction, *group: pygame.sprite.Group):
-        super().__init__(x, y, width, height, direction, [], *group)
-        self.draw_yourself()
+class Head(Tail):
+    def __init__(self, x: int, y: int, width: int, height: int, direction, x_pos, y_pos, *group: pygame.sprite.Group):
+        super().__init__(x, y, width, height, direction, [], x_pos, y_pos, *group)
 
     def draw_yourself(self):
         short = (self.rect.w + 1) // 5
         long = (self.rect.w + 1) // 5 * 3
         first = [short, long, short, short]
-        second = [long, short, short, short]
-        if self.dir_x == -1:
-            second[0] = short
-        elif self.dir_x == 1:
-            first[0] = long
-        elif self.dir_y == -1:
-            first[1] = short
-        elif self.dir_y == 1:
-            second[1] = long
+        second = [long, long, short, short]
         self.image.fill('black', first)
         self.image.fill('black', second)
 
@@ -269,8 +239,7 @@ def terminate():
 
 def game():
     running = True
-    plan = [i.split() for i in open('data/snake_plan.txt', encoding="utf-8").read().split('\n')]
-    board = Board(25, 25, 715, 650, plan, (1, 0))
+    board = Board(25, 25, 715, 650, 65)
     x = y = 0
     while running:
         for event in pygame.event.get():
