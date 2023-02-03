@@ -179,7 +179,9 @@ class Tail(pygame.sprite.Sprite):
         self.change_dir(direction[0], direction[1])
 
     def draw_yourself(self):
-        pass
+        pygame.draw.line(self.image, 'black', (0, self.rect.h), (self.rect.w // 2, 0), self.rect.w // 13)
+        pygame.draw.line(self.image, 'black', ((self.rect.w + 1) // 2, 0), (self.rect.w, self.rect.h),
+                         self.rect.w // 13)
 
     def update(self, change=False, x=0, y=0, move=0, die=False, sleep=False) -> None:
         if change:
@@ -200,13 +202,33 @@ class Tail(pygame.sprite.Sprite):
             self.image = im
 
     def change_dir(self, x, y):
-        f = to_binary(self.order[0][0], self.order[0][1])
-        s = to_binary(x, y)
-        if f != s:
-            ang = -90
-            if f > s and not (f == 2 and s == -2) or f == -2 and s == 2:
-                ang = 90
-            self.image = pygame.transform.rotate(self.image, ang)
+        f = self.order[0]
+        if len(self.order) == 1:
+            s = (x, y)
+        else:
+            s = self.order[1]
+        tran = self.image
+        if f[0] == -1:
+            if s[1] == -1:
+                tran = pygame.transform.rotate(self.image, -90)
+            elif s[1] == 1:
+                tran = pygame.transform.rotate(self.image, 90)
+        elif f[1] == -1:
+            if s[0] == 1:
+                tran = pygame.transform.rotate(self.image, -90)
+            elif s[0] == -1:
+                tran = pygame.transform.rotate(self.image, 90)
+        elif f[0] == 1:
+            if s[1] == 1:
+                tran = pygame.transform.rotate(self.image, -90)
+            elif s[1] == -1:
+                tran = pygame.transform.rotate(self.image, 90)
+        elif f[1] == 1:
+            if s[0] == -1:
+                tran = pygame.transform.rotate(self.image, -90)
+            elif s[0] == 1:
+                tran = pygame.transform.rotate(self.image, 90)
+        self.image = tran
         self.dir_x = x
         self.dir_y = y
 
