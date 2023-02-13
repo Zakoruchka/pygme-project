@@ -28,11 +28,14 @@ def load_image(name: str, colorkey=-1) -> Surface:
 def render_record_table(screen):
     screen.fill('white')
     headline = pygame.font.Font(None, 150).render('Последние результаты', True, 'black')
-    y = headline.get_height()
     screen.blit(headline, ((screen.get_width() - headline.get_width()) // 2, 0))
+    y = headline.get_height() + 10
     font = pygame.font.Font(None, 100)
+    exit_txt = font.render('Нажмите любую кнопку для выхода', True, 'black')
     snake_txt = font.render('Змейка', True, 'black')
     tetris_txt = font.render('Тетрис', True, 'black')
+    screen.blit(exit_txt, ((screen.get_width() - exit_txt.get_width()) // 2, y))
+    y += 78
     screen.blit(snake_txt, ((screen.get_width() // 2 - snake_txt.get_width()) // 2, y))
     screen.blit(tetris_txt, ((screen.get_width() * 3 // 2 - tetris_txt.get_width()) // 2, y))
     ys = yt = y + 68
@@ -40,7 +43,7 @@ def render_record_table(screen):
         ty, sc = i.split(' ')
         if min(ys, yt) + 68 > screen.get_height():
             break
-        if ty == 'Змейка' and ys + 68 > screen.get_height() or ty == 'Тетрис' and yt + 68 > screen.get_height():
+        if ty == 'Змейка' and ys + 78 > screen.get_height() or ty == 'Тетрис' and yt + 68 > screen.get_height():
             continue
         txt = font.render(sc, True, 'black')
         if ty == 'Змейка':
@@ -109,4 +112,3 @@ if __name__ == '__main__':
                         render_record_table(screen)
                 render_main_menu(screen)
     pygame.quit()
-
