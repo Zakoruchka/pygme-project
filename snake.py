@@ -4,7 +4,6 @@ import os
 from pygame import Surface
 from random import randrange
 from collections import deque
-SNAKE_SPEED = 320
 
 
 def load_image(name: str, colorkey=-1) -> Surface:
@@ -97,10 +96,10 @@ class Board:
         if self.snake_len == 0:
             return False
         time += self.time
-        pixels = time / 1000 * SNAKE_SPEED
+        pixels = time / 1000 * self.cell_w * 3
         move = int(pixels)
         ost = pixels - move
-        self.time = ost * 1000 / SNAKE_SPEED
+        self.time = ost * 1000 / (self.cell_w * 3)
         self.distance += move
         if not x + self.dir_x == y + self.dir_y == 0 and (x != self.dir_x or y != self.dir_y) and abs(x + y) == 1:
             self.dir_x = x
@@ -139,7 +138,6 @@ class Board:
             self.snake.update(move=move)
             self.render(screen)
         if randrange((self.now_appls + 1) * 100) < 1:
-            print(self.now_appls)
             self.summon_apple()
             self.now_appls += 1
         return True
@@ -283,27 +281,27 @@ def snake_game(screen):
         report = board.snake_control(clock.tick(50), x, y, screen)
         if not report:
             if not board.new_snake([(0, 0), (0, 0), (0, 0)], (0, 1)):
-                snake_game_over(screen, board.eaten, board.died)
-                return
+                return snake_game_over(screen, board.eaten, board.died)
             x = y = 0
         pygame.display.flip()
 
 
 def snake_game_over(screen, apples, dies):
-    all_texts = Surface((WIDTH, HEIGHT))
+    all_texts = Surface((screen.get_width(), screen.get_height()))
     all_texts.fill('black')
     go = pygame.font.Font(None, 200).render('GAME OVER', True, 'red')
+    all_texts.blit(go, ((screen.get_width() - go.get_width()) // 2, 0))
     y = go.get_height() + 50
     font = pygame.font.Font(None, 75)
-    all_texts.blit(go, ((WIDTH - go.get_width()) // 2, 0))
+    score = apples * 10 - dies * 50
     for i in [f'Собрано яблок: {apples}', f'Змеек погибло: {dies}', 'Формула: Яблоки * 10 - Смерти * 50',
-              f'Всего очков: {apples * 10 - dies * 50}']:
+              f'Всего очков: {score}']:
         text = font.render(i, True, 'red')
         all_texts.blit(text, (0, y))
         y += text.get_height() + 50
     ex = pygame.font.Font(None, 125).render('PRESS ANY KEY TO EXIT', True, 'red')
-    all_texts.blit(ex, ((WIDTH - ex.get_width()) // 2, y))
-    y = -HEIGHT
+    all_texts.blit(ex, ((screen.get_width() - ex.get_width()) // 2, y))
+    y = -screen.get_height()
     clock = pygame.time.Clock()
     running = True
     while running:
@@ -315,6 +313,7 @@ def snake_game_over(screen, apples, dies):
             y += 1
             screen.blit(all_texts, (0, y))
             pygame.display.flip()
+    return score
 
 
 if __name__ == '__main__':

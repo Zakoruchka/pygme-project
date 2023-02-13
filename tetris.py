@@ -239,7 +239,7 @@ def set_background(red, green, blue):
     screen.fill((red, green, blue), rect=(x0, y_padding, X_cells * quant, Y_cells * quant - y_padding))
 
 
-def DrawFilledCells():
+def DrawFilledCells(screen):
     field = pygame.Surface((X_cells * quant, Y_cells * quant), pygame.SRCALPHA)
 
     empty_color = (0, 0, 0, 0)
@@ -270,10 +270,10 @@ def DrawFilledCells():
 
 def draw_mainfield(screen, quant):
     screen.fill(field_color, r)
-    DrawFilledCells()  # отображение упавших фигур
+    DrawFilledCells(screen)  # отображение упавших фигур
 
 
-def DrawGrid():
+def DrawGrid(screen):
     x0 = (width) / 2 - (X_cells * quant) / 2
     y0 = (height) / 2 - (Y_cells * quant) / 2
 
@@ -340,7 +340,7 @@ def check_rotation(place, figure, orient):
             return False
 
 
-def OnKeyDown(place, figure, orient, figcol):
+def OnKeyDown(place, figure, orient, figcol, screen):
     """
     обработчик нажатия кнопки аниз
     """
@@ -365,7 +365,7 @@ def OnKeyDown(place, figure, orient, figcol):
         draw_mainfield(screen, quant)  # make background for field
         screen.blit(fig, (x1, y1))
 
-        DrawGrid()
+        DrawGrid(screen)
         draw_info(screen)
 
         color_grid = (255, 255, 255)
@@ -403,7 +403,7 @@ def OnKeyLeft(place, figure, orient, figcol):
         place[0] -= 1
 
 
-def OnRotate(place, figure, orient, figcol):
+def OnRotate(place, figure, orient, figcol, screen):
     # если не выходит за пределы то пересчитываем место
     # place может измениться
     if check_rotation(place, figure, orient):
@@ -419,7 +419,7 @@ def OnRotate(place, figure, orient, figcol):
             draw_mainfield(screen, quant)
             screen.blit(fig, (x1, y1))
 
-            DrawGrid()
+            DrawGrid(screen)
             draw_info(screen)
 
             color_grid = (255, 255, 255)
@@ -500,7 +500,7 @@ def ShowNewFig(screen, place, test1=False, test2=("T", 0, 0)):
     else:
         state = GAMEOVER
 
-    DrawGrid()
+    DrawGrid(screen)
 
     return figure, orient, figcol, state
 
@@ -559,6 +559,12 @@ def GaveOverScreen(screen):
 
     gameover.blit(text_game_over, (100, 70))
     screen.blit(gameover, rct)
+    pygame.display.flip()
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type in [pygame.KEYDOWN, pygame.QUIT]:
+                running = False
 
 
 def IsFullRows():
@@ -623,15 +629,9 @@ def CheckSpace(figure, orient, place):
     return flag
 
 
-###### MAIN CODE
-pygame.init()
-pygame.display.set_caption("Tetris")
-
-try:
-    size = (width, height)
-
-    screen = pygame.display.set_mode(size)
-
+def tetris_game(screen):
+    global score
+    global amount_figs
     StartScreen(screen)
     pygame.display.flip()
     pygame.time.wait(500)
@@ -645,7 +645,7 @@ try:
 
     figure, orient, figcol, state = ShowNewFig(screen, place, test_fig1, test_fig2)
     draw_mainfield(screen, quant)
-    DrawGrid()
+    DrawGrid(screen)
     draw_info(screen)
 
     while True:
@@ -658,9 +658,9 @@ try:
             elif keys[pygame.K_RIGHT] or keys[pygame.K_KP6]:
                 OnKeyRight(place, figure, orient, figcol)
             elif keys[pygame.K_DOWN] or keys[pygame.K_KP2]:
-                OnKeyDown(place, figure, orient, figcol)
+                OnKeyDown(place, figure, orient, figcol, screen)
             elif keys[pygame.K_SPACE] or keys[pygame.K_KP5]:
-                orient = OnRotate(place, figure, orient, figcol)
+                orient = OnRotate(place, figure, orient, figcol, screen)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -678,7 +678,7 @@ try:
 
         if state == RUNNING:
             pygame.time.wait(150)
-            OnKeyDown(place, figure, orient, figcol)
+            OnKeyDown(place, figure, orient, figcol, screen)
             pygame.display.update
 
             sprite = figures[figure][orient]
@@ -708,8 +708,21 @@ try:
 
         if state == GAMEOVER:
             GaveOverScreen(screen)
+            return
 
         pygame.display.flip()
 
-except ValueError:
-    print('Неправильный формат ввода')
+
+if __name__ == '__main__':
+    ###### MAIN CODE
+    pygame.init()
+    pygame.display.set_caption("Tetris")
+
+    try:
+        size = (width, height)
+
+        screen = pygame.display.set_mode(size)
+
+        tetris_game(screen)
+    except ValueError:
+        print('Неправильный формат ввода')
