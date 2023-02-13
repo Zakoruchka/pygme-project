@@ -4,7 +4,7 @@ import os
 from pygame import Surface
 from random import randrange
 from collections import deque
-SNAKE_SPEED = 65
+SNAKE_SPEED = 320
 
 
 def load_image(name: str, colorkey=-1) -> Surface:
@@ -49,12 +49,16 @@ class Board:
         self.cell_w = self.cell_h = cell_w
         self.x = x
         self.y = y
+        self.eaten = 0
+        self.died = 0
         self.plan = [['.'] * self.field_w for i in range(self.field_h)]
         self.snake = pygame.sprite.Group()
         self.snake_tail = pygame.sprite.Group()
+        self.snake_head = pygame.sprite.Group()
         self.tileset = (load_image('master-tileset.png'), 10, 5)
         self.apple = pygame.transform.scale(cut_sheet((load_image('snake-graphics.png'), 5, 4), (0, 3)),
                                             (self.cell_w, self.cell_h))
+        self.now_appls = 0
         self.time = 0
         self.distance = 0
         self.dir_x = 0
@@ -64,27 +68,30 @@ class Board:
         self.tail = None
 
     def new_snake(self, chords, direction):
-        if chords:
-            self.time = 0
-            self.distance = 0
-            self.dir_x = direction[0]
-            self.dir_y = direction[1]
-            self.snake_len = len(chords)
-            x = self.x + chords[0][0] * self.cell_w
-            y = self.y + chords[0][1] * self.cell_h
-            self.head = Head(x, y, self.cell_h, self.cell_w, direction, chords[0][0], chords[0][1],
-                             self.snake)
-            self.plan[chords[0][1]][chords[0][0]] = '>'
-            self.plan[chords[-1][1]][chords[-1][0]] = '<'
-            act = []
-            for i in range(1, len(chords) - 1):
-                self.plan[chords[i][1]][chords[i][0]] = '-'
+        self.time = 0
+        self.distance = 0
+        self.dir_x = direction[0]
+        self.dir_y = direction[1]
+        self.snake_len = len(chords)
+        act = []
+        for i in range(0, len(chords)):
+            if self.plan[chords[i][1]][chords[i][0]] == '%':
+                return False
+            x = self.x + chords[i][0] * self.cell_w
+            y = self.y + chords[i][1] * self.cell_h
+            if i > 0:
                 act.append((chords[i - 1][0] - chords[i][0], chords[i - 1][1] - chords[i][1]))
-            x = self.x + chords[-1][0] * self.cell_w
-            y = self.y + chords[-1][1] * self.cell_h
-            act.append((chords[-2][0] - chords[-1][0], chords[-2][1] - chords[-1][1]))
-            self.tail = Tail(x, y, self.cell_h, self.cell_w, direction, list(reversed(act)), chords[-1][0],
-                             chords[-1][1], self.snake, self.snake_tail)
+                if i == len(chords) - 1:
+                    self.tail = Tail(x, y, self.cell_h, self.cell_w, direction, list(reversed(act)), chords[-1][0],
+                                     chords[-1][1], self.snake, self.snake_tail)
+                else:
+                    self.plan[chords[i][1]][chords[i][0]] = '-'
+            else:
+                self.head = Head(x, y, self.cell_h, self.cell_w, direction, chords[0][0], chords[0][1],
+                                 self.snake, self.snake_head)
+        self.plan[chords[-1][1]][chords[-1][0]] = '<'
+        self.plan[chords[0][1]][chords[0][0]] = '>'
+        return True
 
     def snake_control(self, time, x, y, screen):
         if self.snake_len == 0:
@@ -106,14 +113,13 @@ class Board:
             self.snake.update(change=True, x=self.dir_x, y=self.dir_y)
             if self.plan[self.head.y][self.head.x] == '@':
                 self.snake_len += 1
+                self.eaten += 1
                 self.snake_tail.update(sleep=True)
+                self.now_appls -= 1
             self.plan[self.head.y][self.head.x] = '>'
             self.plan[self.tail.y][self.tail.x] = '<'
             hx = self.head.x + self.dir_x
             hy = self.head.y + self.dir_y
-            print()
-            for i in self.plan:
-                print(i)
             if 0 > hx or hx >= self.field_w or 0 > hy or hy >= self.field_h or\
                     self.plan[hy][hx] in ['#', '%', '-', '<']:
                 self.snake_len = 0
@@ -125,12 +131,17 @@ class Board:
                         if self.plan[i][j] in ['<', '-', '>']:
                             self.plan[i][j] = '%'
                 self.render(screen)
+                self.died += 1
                 return False
             else:
                 self.snake.update(move=self.distance)
         elif move > 0:
             self.snake.update(move=move)
             self.render(screen)
+        if randrange((self.now_appls + 1) * 100) < 1:
+            print(self.now_appls)
+            self.summon_apple()
+            self.now_appls += 1
         return True
 
     def render(self, screen: Surface):
@@ -145,20 +156,25 @@ class Board:
                     im.fill('green')
                 elif cur == '%':
                     im.fill('gray')
-                elif cur != '#':
-                    im = pygame.transform.scale(cut_sheet(self.tileset, (0, 2)), (self.cell_w, self.cell_h))
+                else:
+                    ch = 0
+                    if i == 0 and j == 0:
+                        ch = 8
+                    im = pygame.transform.scale(cut_sheet(self.tileset, (ch, 2)), (self.cell_w, self.cell_h))
                 screen.blit(im, (x, y))
                 if cur == '@':
                     screen.blit(self.apple, (x, y))
-        self.snake.draw(screen)
+        self.snake_tail.draw(screen)
+        self.snake_head.draw(screen)
 
     def summon_apple(self):
-        x = randrange(self.field_w)
-        y = randrange(self.field_h)
-        while self.plan[y][x] != '.':
+        if any([any(map(lambda z: z == '.', i)) for i in self.plan]):
             x = randrange(self.field_w)
             y = randrange(self.field_h)
-        self.plan[y][x] = '@'
+            while self.plan[y][x] != '.' or y == x == 0:
+                x = randrange(self.field_w)
+                y = randrange(self.field_h)
+            self.plan[y][x] = '@'
 
 
 class Tail(pygame.sprite.Sprite):
@@ -246,22 +262,15 @@ class Head(Tail):
         self.image.fill('black', second)
 
 
-pygame.init()
-WIDTH, HEIGHT = 765, 700
-size = WIDTH, HEIGHT
-screen = pygame.display.set_mode(size)
-clock = pygame.time.Clock()
-all_sprites = pygame.sprite.Group()
-
-
 def terminate():
     pygame.quit()
     sys.exit()
 
 
-def game():
+def snake_game(screen):
     running = True
-    board = Board(25, 25, 715, 650, 65)
+    board = Board(0, 0, 1280, 800, 80)
+    clock = pygame.time.Clock()
     x = y = 0
     while running:
         for event in pygame.event.get():
@@ -271,16 +280,48 @@ def game():
                 pr = pygame.key.get_pressed()
                 x = pr[pygame.K_d] - pr[pygame.K_a]
                 y = pr[pygame.K_s] - pr[pygame.K_w]
-        if not board.snake_control(clock.tick(50), x, y, screen):
-            xc = randrange(0, board.field_w)
-            board.new_snake([(xc, 2), (xc, 1), (xc, 0)], (0, 1))
+        report = board.snake_control(clock.tick(50), x, y, screen)
+        if not report:
+            if not board.new_snake([(0, 0), (0, 0), (0, 0)], (0, 1)):
+                snake_game_over(screen, board.eaten, board.died)
+                return
             x = y = 0
-        if randrange(100) < 1:
-            board.summon_apple()
         pygame.display.flip()
 
 
+def snake_game_over(screen, apples, dies):
+    all_texts = Surface((WIDTH, HEIGHT))
+    all_texts.fill('black')
+    go = pygame.font.Font(None, 200).render('GAME OVER', True, 'red')
+    y = go.get_height() + 50
+    font = pygame.font.Font(None, 75)
+    all_texts.blit(go, ((WIDTH - go.get_width()) // 2, 0))
+    for i in [f'Собрано яблок: {apples}', f'Змеек погибло: {dies}', 'Формула: Яблоки * 10 - Смерти * 50',
+              f'Всего очков: {apples * 10 - dies * 50}']:
+        text = font.render(i, True, 'red')
+        all_texts.blit(text, (0, y))
+        y += text.get_height() + 50
+    ex = pygame.font.Font(None, 125).render('PRESS ANY KEY TO EXIT', True, 'red')
+    all_texts.blit(ex, ((WIDTH - ex.get_width()) // 2, y))
+    y = -HEIGHT
+    clock = pygame.time.Clock()
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type in [pygame.KEYDOWN, pygame.QUIT]:
+                running = False
+        clock.tick(150)
+        if y < 0:
+            y += 1
+            screen.blit(all_texts, (0, y))
+            pygame.display.flip()
+
+
 if __name__ == '__main__':
+    pygame.init()
     pygame.display.set_caption('Змейка')
-    game()
+    WIDTH, HEIGHT = 1280, 800
+    size = WIDTH, HEIGHT
+    screen = pygame.display.set_mode(size)
+    snake_game(screen)
     pygame.quit()
