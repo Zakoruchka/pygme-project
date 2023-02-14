@@ -677,7 +677,7 @@ def tetris_game(screen):
                             state = RUNNING
 
         if state == RUNNING:
-            pygame.time.wait(150)
+            pygame.time.wait(100)
             OnKeyDown(place, figure, orient, figcol, screen)
             pygame.display.update
 
